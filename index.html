@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financeiro Master | v15.1 Estável</title>
+    <style>
+        :root { 
+            --primary: #2c3e50; --accent: #27ae60; --expense: #e74c3c; 
+            --warning: #f1c40f; --bg: #f0f2f5; --white: #ffffff; --text: #333; 
+        }
+        body.dark-mode { --bg: #1a1a1a; --white: #2d2d2d; --text: #f0f0f0; --primary: #34495e; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; transition: 0.3s; }
+        
+        #lock-screen { position: fixed; inset: 0; background: var(--primary); display: flex; justify-content: center; align-items: center; z-index: 10000; }
+        .login-box { text-align: center; background: rgba(255,255,255,0.1); padding: 2rem; border-radius: 15px; backdrop-filter: blur(10px); color: white; }
+        .login-box input { padding: 12px; border-radius: 8px; border: none; margin-bottom: 15px; width: 220px; text-align: center; font-size: 1.1rem; }
+        
+        #main-system { display: none; }
+        nav { background: var(--primary); padding: 1rem; display: flex; justify-content: center; gap: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); position: sticky; top: 0; z-index: 100; }
+        nav button { background: transparent; border: 1px solid white; color: white; padding: 8px 15px; border-radius: 20px; cursor: pointer; }
+        nav button.active { background: white; color: var(--primary); font-weight: bold; }
+
+        .container { padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .page { display: none; width: 100%; max-width: 950px; }
+        .page.active { display: block; }
+
+        .card-dash, .summary-item { background: var(--white); padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 20px; width: 100%; }
+        .val { display: block; font-size: 1.4rem; font-weight: 800; }
+
+        .tag { padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; }
+        .tag-entrada { background: #e3fcef; color: #00875a; }
+        .tag-fixo { background: #deebff; color: #0747a6; }
+        .tag-var { background: #fff7e6; color: #bf8100; }
+        .tag-pess { background: #f4f5f7; color: #42526e; }
+
+        .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 10px; }
+        .progress-bar { background: #e0e0e0; height: 6px; border-radius: 3px; overflow: hidden; margin: 8px 0; }
+        .progress-fill { height: 100%; width: 0%; transition: 0.5s; background: var(--accent); }
+
+        .controls { display: flex; gap: 10px; width: 100%; margin-bottom: 15px; flex-wrap: wrap; }
+        .controls select, .controls input { padding: 10px; border-radius: 8px; border: 1px solid #ddd; background: var(--white); color: var(--text); flex: 1; }
+
+        .table-container { background: var(--white); border-radius: 12px; overflow-x: auto; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; }
+        table { width: 100%; border-collapse: collapse; min-width: 600px; }
+        th { background: rgba(0,0,0,0.05); padding: 15px; text-align: left; }
+        td { padding: 12px; border-bottom: 1px solid #eee; }
+        
+        .card-form { background: var(--white); padding: 2rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 450px; margin: auto; }
+        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; background: var(--white); color: var(--text); margin-bottom: 1rem; }
+    </style>
+</head>
+<body id="bodyMain">
+
+<div id="lock-screen">
+    <div class="login-box">
+        <h3>🔒 Financeiro Master</h3>
+        <input type="password" id="passInput" placeholder="Senha Mestra"><br>
+        <button onclick="checkPass()" style="padding:12px 40px; border-radius:8px; border:none; background:var(--accent); color:white; cursor:pointer; font-weight:bold; width:220px;">Entrar</button>
+    </div>
+</div>
+
+<div id="main-system">
+    <nav>
+        <button onclick="showPage('cadastro')" id="btnNavCad" class="active">Lançar</button>
+        <button onclick="showPage('consulta')" id="btnNavCons">Relatórios</button>
+        <button onclick="toggleDarkMode()">🌓</button>
+    </nav>
+
+    <div class="container">
+        <section id="page-cadastro" class="page active">
+            <div class="card-form">
+                <form id="financeForm">
+                    <label>Data</label><input type="date" id="data" required>
+                    <label>Local</label><input type="text" id="local" placeholder="Ex: Mercado" required>
+                    <label>Valor</label><input type="text" id="valor" placeholder="R$ 0,00" required>
+                    <label>Categoria</label>
+                    <select id="categoria" required>
+                        <option value="" disabled selected>Selecione...</option>
+                        <optgroup label="💰 RECEITAS / ENTRADAS">
+                            <option value="Entrada">Entrada / Salário</option>
+                        </optgroup>
+                        <optgroup label="🏠 GASTOS FIXOS">
+                            <option value="Fixo - Moradia">Fixo - Moradia</option>
+                            <option value="Fixo - Educação">Fixo - Educação</option>
+                            <option value="Fixo - Saúde">Fixo - Saúde</option>
+                            <option value="Fixo - Tecnologia">Fixo - Tecnologia</option>
+                            <option value="Fixo - Transporte">Fixo - Transporte</option>
+                            <option value="Fixo - Igreja">Fixo - Igreja</option>
+                            <option value="Fixo - Banco">Fixo - Banco</option>
+                        </optgroup>
+                        <optgroup label="🍔 GASTOS VARIÁVEIS">
+                            <option value="Var - Alimentação">Var - Alimentação</option>
+                            <option value="Var - Lanches">Var - Lanches</option>
+                            <option value="Var - Lazer">Var - Lazer</option>
+                            <option value="Var - Vestuário">Var - Vestuário</option>
+                            <option value="Var - Pets">Var - Pets</option>
+                            <option value="Var - Velas">Var - Velas</option>
+                            <option value="Var - Diversos">Var - Diversos</option>
+                        </optgroup>
+                        <optgroup label="👤 PESSOAIS / FAMÍLIA">
+                            <option value="Pess - Ian">Pess - Ian</option>
+                            <option value="Pess - Isa">Pess - Isa</option>
+                            <option value="Pess - Edesio">Pess - Edesio</option>
+                            <option value="Pess - Fernanda">Pess - Fernanda</option>
+                            <option value="Pess - Casal">Pess - Casal</option>
+                        </optgroup>
+                        <optgroup label="📈 INVESTIMENTO">
+                            <option value="Investimento">Investimento / Reserva</option>
+                        </optgroup>
+                    </select>
+                    <label>Modalidade</label>
+                    <select id="modalidade" required>
+                        <option value="" disabled selected>Selecione...</option>
+                        <option>Cartão Bradesco</option><option>Cartão Nubank</option>
+                        <option>Débito / PIX</option><option value="Entrada">Entrada</option>
+                    </select>
+                    <button type="submit" id="btnSalvar" style="width:100%; padding:15px; background:var(--accent); color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">💾 Salvar</button>
+                </form>
+            </div>
+        </section>
+
+        <section id="page-consulta" class="page">
+            <div class="card-dash">
+                <h4 style="margin:0 0 10px 0">🎯 Metas por Grupo</h4>
+                <div class="meta-grid">
+                    <div class="meta-item"><label>FIXOS</label><input type="text" id="metaFixo" placeholder="R$ 0" oninput="saveMeta(this, 'Fixo')"><div class="progress-bar"><div id="barFixo" class="progress-fill"></div></div></div>
+                    <div class="meta-item"><label>VARIÁVEIS</label><input type="text" id="metaVar" placeholder="R$ 0" oninput="saveMeta(this, 'Var')"><div class="progress-bar"><div id="barVar" class="progress-fill"></div></div></div>
+                    <div class="meta-item"><label>PESSOAIS</label><input type="text" id="metaPess" placeholder="R$ 0" oninput="saveMeta(this, 'Pess')"><div class="progress-bar"><div id="barPess" class="progress-fill"></div></div></div>
+                </div>
+            </div>
+
+            <div class="summary-grid">
+                <div class="summary-item" style="border-color:var(--accent)"><span>Receitas</span><span class="val" id="totalIn" style="color:var(--accent)">R$ 0,00</span></div>
+                <div class="summary-item" style="border-color:var(--expense)"><span>Despesas</span><span class="val" id="totalOut" style="color:var(--expense)">R$ 0,00</span></div>
+                <div class="summary-item" style="border-color:var(--primary)"><span>Saldo</span><span class="val" id="totalBal">R$ 0,00</span></div>
+            </div>
+
+             <!-- Dashboard de Carteira -->
+            <div class="summary-grid">
+                <div class="summary-item" style="border-color:#6c5ce7"><span>Nubank</span><span class="val" id="sumNubank" style="font-size:1.1rem">R$ 0,00</span></div>
+                <div class="summary-item" style="border-color:#ff7675"><span>Bradesco</span><span class="val" id="sumBradesco" style="font-size:1.1rem">R$ 0,00</span></div>
+                <div class="summary-item" style="border-color:#00cec9"><span>Economia</span><span class="val" id="taxaEconomia" style="font-size:1.1rem">0%</span></div>
+            </div>
+
+            <div class="controls">
+                <select id="fMes" onchange="filtrarTabela()"><option value="">Todos os Meses</option></select>
+                <select id="fAno" onchange="filtrarTabela()"><option value="">Todos os Anos</option></select>
+                <input type="text" id="fBusca" placeholder="🔍 Filtrar..." onkeyup="filtrarTabela()">
+                <button onclick="exportarCSV()" style="background:#e67e22; color:white; border:none; padding:10px; border-radius:8px; cursor:pointer;">📥 CSV</button>
+            </div>
+
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>Data</th><th>Local</th><th>Valor</th><th>Categoria</th><th>Modalidade</th></tr></thead>
+                    <tbody id="corpoTabela"></tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+
+<script>
+    const MINHA_SENHA = "Ian07isa17";
+    const scriptURL = "https://script.google.com/macros/s/AKfycbzEqOZ1JHz9sUFffO8fnKUjsxNqsP32IEbFXcraors2RcYIBkLm9TNmKC3a5yStNCjc/exec";
+
+    document.addEventListener('DOMContentLoaded', () => {
+        ['Fixo', 'Var', 'Pess'].forEach(c => {
+            const m = localStorage.getItem('meta' + c);
+            if(m) document.getElementById('meta' + c).value = m;
+        });
+    });
+
+    function checkPass() {
+        if(document.getElementById('passInput').value === MINHA_SENHA) {
+            document.getElementById('lock-screen').style.display = 'none';
+            document.getElementById('main-system').style.display = 'block';
+            document.body.style.overflow = 'auto';
+        } else { alert('Senha incorreta'); }
+    }
+
+    function toggleDarkMode() { document.body.classList.toggle('dark-mode'); }
+
+    function showPage(p) {
+        document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+        document.getElementById('page-' + p).classList.add('active');
+        document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+        document.querySelector(`nav button[onclick*="${p}"]`).classList.add('active');
+        if(p === 'consulta') carregarDados();
+    }
+
+    function saveMeta(el, c) {
+        let v = el.value.replace(/\D/g,'');
+        v = (v/100).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+        el.value = v;
+        localStorage.setItem('meta' + c, v);
+        filtrarTabela();
+    }
+
+    document.getElementById('valor').addEventListener('input', (e) => {
+        let v = e.target.value.replace(/\D/g,'');
+        v = (v/100).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+        e.target.value = v;
+    });
+
+    // MOTOR DE CARREGAMENTO RESTAURADO DA v14.0
+    async function carregarDados() {
+        const tbody = document.getElementById('corpoTabela');
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center">Carregando...</td></tr>';
+        try {
+            const res = await fetch(scriptURL, { redirect: 'follow' });
+            const dados = await res.json();
+            const meses = new Set(), anos = new Set();
+            let html = "";
+
+            dados.forEach(linha => {
+                if(!linha) return;
+                // Lógica de data exata da v14
+                let dParts = linha[0].includes('-') ? linha[0].split('T')[0].split('-').reverse() : linha[0].split('/');
+                const [dia, mes, ano] = dParts;
+                meses.add(mes); anos.add(ano);
+
+                // Lógica de Tags Visuais
+                let tagClass = "tag";
+                let catTexto = linha[3] || "";
+                if(catTexto.includes("Entrada")) tagClass += " tag-entrada";
+                else if(catTexto.includes("Fixo")) tagClass += " tag-fixo";
+                else if(catTexto.includes("Var")) tagClass += " tag-var";
+                else if(catTexto.includes("Pess")) tagClass += " tag-pess";
+
+                html += `<tr data-mes="${mes}" data-ano="${ano}">
+                    <td>${dia}/${mes}/${ano}</td>
+                    <td><b>${linha[1]}</b></td>
+                    <td>${linha[2]}</td>
+                    <td><span class="${tagClass}">${linha[3]}</span></td>
+                    <td>${linha[4]}</td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+            popularFiltros(Array.from(meses).sort(), Array.from(anos).sort());
+            filtrarTabela();
+        } catch (e) { tbody.innerHTML = '<tr><td colspan="5">Erro ao carregar dados da planilha.</td></tr>'; }
+    }
+
+    function popularFiltros(m, a) {
+        const nomes = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+        const sM = document.getElementById('fMes'), sA = document.getElementById('fAno');
+        if(sM.options.length > 1) return;
+        m.forEach(v => sM.innerHTML += `<option value="${v}">${nomes[parseInt(v)-1]}</option>`);
+        a.forEach(v => sA.innerHTML += `<option value="${v}">${v}</option>`);
+    }
+
+        function filtrarTabela() {
+        const m = document.getElementById('fMes').value;
+        const a = document.getElementById('fAno').value;
+        const b = document.getElementById('fBusca').value.toUpperCase();
+        let sIn = 0, sOut = 0, sFix = 0, sVar = 0, sPess = 0, sNub = 0, sBra = 0;
+        
+        document.querySelectorAll("#corpoTabela tr").forEach(tr => {
+            const textoLinha = tr.textContent.toUpperCase();
+            const match = (!m || tr.dataset.mes === m) && (!a || tr.dataset.ano === a) && (textoLinha.includes(b));
+            
+            if(match) {
+                tr.style.display = "";
+                
+                // Limpeza e conversão do valor (Coluna 2)
+                let vTxt = tr.cells[2].innerText;
+                let v = parseFloat(vTxt.replace(/[R$\s\.]/g, '').replace(',', '.')) || 0;
+                
+                // Pega os textos da categoria (Coluna 3) e modalidade (Coluna 4)
+               // const cat = tr.cells[3].innerText.toUpperCase();
+               // const mod = tr.cells[4].innerText.toUpperCase();
+               const cat = tr.cells[3].innerText, mod = tr.cells[4].innerText;
+
+                // Lógica Master: Se houver "ENTRADA" ou "RECEITA", soma nas entradas
+                if(cat.includes("ENTRADA") || cat.includes("RECEITA") || mod.includes("ENTRADA")) {
+                    sIn += v;
+                } else {
+                    sOut += v;
+                    // Soma por grupos para as barras de meta
+                    if(cat.includes("FIXO")) sFix += v;
+                    else if(cat.includes("VAR")) sVar += v;
+                    else if(cat.includes("PESS")) sPess += v;
+
+                    if(mod.includes("Nubank")) sNub += v;
+                    if(mod.includes("Bradesco")) sBra += v;
+                }
+            } else { 
+                tr.style.display = "none"; 
+            }
+        });
+
+        // Atualização dos painéis com formatação BRL
+        const f = {style:'currency', currency:'BRL'};
+        document.getElementById('totalIn').innerText = sIn.toLocaleString('pt-BR', f);
+        document.getElementById('totalOut').innerText = sOut.toLocaleString('pt-BR', f);
+        document.getElementById('totalBal').innerText = (sIn - sOut).toLocaleString('pt-BR', f);
+        document.getElementById('sumNubank').innerText = sNub.toLocaleString('pt-BR', f);
+        document.getElementById('sumBradesco').innerText = sBra.toLocaleString('pt-BR', f);
+        document.getElementById('taxaEconomia').innerText = sIn > 0 ? (((sIn - sOut) / sIn) * 100).toFixed(0) + "%" : "0%";
+
+        // Atualização das barras de meta
+        const atualizarM = (cat, gasto) => {
+            const mStr = document.getElementById('meta' + cat).value;
+            const mVal = parseFloat(mStr.replace(/[R$\s\.]/g, '').replace(',', '.')) || 0;
+            const p = mVal > 0 ? (gasto / mVal) * 100 : 0;
+            const bar = document.getElementById('bar' + cat);
+            bar.style.width = Math.min(p, 100) + "%";
+            bar.style.background = p > 100 ? "var(--expense)" : (p > 85 ? "var(--warning)" : "var(--accent)");
+        };
+        
+        atualizarM('Fixo', sFix); 
+        atualizarM('Var', sVar); 
+        atualizarM('Pess', sPess);
+    }
+
+
+    document.getElementById('financeForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('btnSalvar');
+        btn.innerText = "Salvando..."; btn.disabled = true;
+        try {
+            await fetch(scriptURL, { 
+                method: 'POST', 
+                body: JSON.stringify({
+                    data: document.getElementById('data').value, local: document.getElementById('local').value,
+                    valor: document.getElementById('valor').value, categoria: document.getElementById('categoria').value,
+                    modalidade: document.getElementById('modalidade').value
+                })
+            });
+           // e.target.reset(); alert("Salvo com sucesso!"); showPage('consulta');
+        } catch(e) { alert("Erro ao salvar."); }
+        finally { btn.innerText = "💾 Salvar"; btn.disabled = false; }
+    });
+
+    function exportarCSV() {
+        let csv = "\ufeffData;Local;Valor;Categoria;Modalidade\n";
+        document.querySelectorAll("#corpoTabela tr").forEach(tr => {
+            if(tr.style.display !== "none") csv += Array.from(tr.cells).map(c => c.innerText).join(";") + "\n";
+        });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+        link.download = "financeiro_pro.csv"; link.click();
+    }
+</script>
+</body>
+</html>
